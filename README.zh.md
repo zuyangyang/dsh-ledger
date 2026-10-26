@@ -163,3 +163,4 @@ cd /Volumes/Zuyang/deepseek_harness_plugin/dsh-ledger
 npm test        # node --test，124 个测试
 npm run verify  # 用本地 shim 模拟 Cordis 加载一次插件，跑一句真实记账
 ~~~
+> 账本目录若是放在**别人已有的 git 仓库**里（比如 Obsidian 库、某个内容的仓库），插件**不会替你提交**——那会把账本历史混进别人的仓库。它会 warn 一次、在 `ledger_doctor` 和面板底部说明；账目照常保存，只是没有历史。想要历史，把账本挪到独立目录再 `git init`。
