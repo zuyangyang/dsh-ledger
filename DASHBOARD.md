@@ -353,3 +353,25 @@ ctx.effect(() => () => { root.unmount(); host.remove() }, 'dsh-ledger:dock')
 - 日期：面板内 `MM-DD`；跨年写 `YYYY-MM-DD`；范围标签「近 30 天 / 本月 / 上月 / 10-27 → 11-25」。
 - 空值写人话：`无收入`、`没有欠账`、`这段时间没有记录`——不写 `—`、不写 `null`。
 - 账本标签 `[家里]` / `[店里]`（与回执一致，方括号）。
+
+## 15. 落地状态（v0.4.0）
+
+| # | 提交 | 状态 |
+|---|---|---|
+| 1 | `68e4cbe feat(range): aggregate any date range` | 已落地，17 个单测 |
+| 2 | `09ca1b2 feat(web): serve the range dashboard` | 已落地，含 400/405 校验与 POST /api/ledger/actors |
+| 3 | `cbf75b2 feat(client): put a ledger button in the corner` | 已落地（按钮、弹窗、范围/视角/账本、预设、Esc） |
+| 4 | `b1b8d80 feat(client): draw the charts, the categories and the fine print` | 已落地（柱+收入线、类目、店里、最近记录、欠账、空态） |
+| 5 | `ff131ba feat(panel): a per-person view that names recorders without rewriting history` | 已落地（排行、堆叠、就地改名写别名） |
+| 6 | `本文 + README 一节 + 版本号` | 本次提交 |
+
+落地时的取舍（对应 §13）：
+
+- Q1：只做「谁记的」（`entered_by`），没有加 `spender` 字段。
+- Q2：面板就地改别名（`meta.actorNames`），`senderName` 增强仍待 dsh-im 侧；显示优先级 别名 → 名字 → `微信用户·<id 前 8 位>`，全都没有就写「未记录」。
+- Q3：居中弹窗 `min(1120px, 92vw) × min(820px, 88vh)`，遮罩点击与 Esc 关闭。
+- Q4：超过 62 天按周聚合（周一为起点）；热力图留 V2。
+- Q5：默认 `all`；`book=home` 时店里卡片不出现。
+- Q6：本版不做导出；`ledger_export` 已能出 md/CSV。
+
+还没做的（写在 §13 里，别当 bug 报）：热力图、导出按钮、身份合并（同一人多个微信号）、`spender` 字段。

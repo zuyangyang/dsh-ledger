@@ -8,13 +8,14 @@ book records a receivable with a running balance.
 - Three separate readings, never mixed: **cash actually moved**, **who owes whom**, and (later) margin.
 - Every entry remembers **who typed it** (`entered_by`), resolved from the IM source block.
 - Data is a plain NDJSON file you can grep, diff, and version with git.
+- A round `账` button in the corner opens a dashboard for any date range: charts, per-recorder lens, debt.
 
 Design: [DESIGN.md](./DESIGN.md) · Build plan: [WEEKEND.md](./WEEKEND.md)
 
 ## Status
 
-Implemented and linked into the ¤desktop¤ profile; restart DSH to load it.
+Implemented and linked into the `desktop` profile; restart DSH to load it.
 
-- ¤npm test¤ — 124 tests over the journal, parsers, derived views, receipts and tools
-- ¤npm run verify¤ — loads the plugin the way Cordis does and records one real sentence
+- `npm test` — 196 tests over the journal, parsers, derived views, ranges, receipts, tools and the panel
+- `npm run verify` — loads the plugin the way Cordis does and records one real sentence
 - Chinese usage, install and smoke-test guide: [README.zh.md](./README.zh.md)
