@@ -10,7 +10,12 @@ const SOURCE = readFileSync(join(import.meta.dirname, '..', 'lib', 'client.js'),
 function fakeReact() {
   return {
     createElement(type, props, ...children) {
-      return { type, props: props || {}, children: children.flat(4).filter((child) => child !== null && child !== undefined && child !== false) }
+      const flat = children.flat(4).filter((child) => child !== null && child !== undefined && child !== false)
+      const merged = { ...(props || {}) }
+      // React hands children to a component through props.children; the stub must
+      // do the same or every wrapper component renders an empty box here.
+      if (flat.length > 0) merged.children = flat.length === 1 ? flat[0] : flat
+      return { type, props: merged, children: flat }
     },
     useState(initial) { return [initial, () => {}] },
     useCallback(fn) { return fn },
@@ -254,4 +259,106 @@ test('the dock asks the route for exactly the view it shows', () => {
   assert.match(url, /to=2026-10-30/)
   assert.match(url, /group=actor/)
   assert.match(url, /book=home/)
+})
+function findAll(node, predicate, out = []) {
+  if (node === null || node === undefined || node === false) return out
+  if (typeof node === 'string' || typeof node === 'number') return out
+  if (Array.isArray(node)) {
+    for (const child of node) findAll(child, predicate, out)
+    return out
+  }
+  if (typeof node.type === 'function') return findAll(node.type(node.props), predicate, out)
+  if (predicate(node)) out.push(node)
+  for (const child of node.children) findAll(child, predicate, out)
+  return out
+}
+
+function openDock(payload, extra = {}) {
+  const { module } = loadClient()
+  return module.__test.LedgerDock({
+    open: true,
+    data: payload,
+    view: dockView(),
+    onOpen: () => {}, onClose: () => {}, onRefresh: () => {},
+    onPreset: () => {}, onCustomFrom: () => {}, onCustomTo: () => {}, onGroup: () => {}, onBook: () => {},
+    ...extra,
+  })
+}
+
+function fullPayload() {
+  const points = []
+  for (let index = 0; index < 30; index += 1) {
+    points.push({
+      key: '2026-10-' + String(index + 1).padStart(2, '0'),
+      label: '10-' + String(index + 1).padStart(2, '0'),
+      home_expense_minor: index === 4 ? 1200 : 0,
+      home_income_minor: index === 9 ? 30000 : 0,
+      home_refund_minor: 0,
+      shop_sales_minor: 0,
+      shop_cash_net_minor: 0,
+      count: index === 4 || index === 9 ? 1 : 0,
+    })
+  }
+  return rangePayload({
+    series: { bucket: 'day', points },
+    categories: {
+      rows: [{ key: 'food', label: '餐饮', minor: 1200, count: 2, share_bp: 10000 }],
+      total_minor: 1200,
+      uncategorized: { minor: 300, count: 1 },
+    },
+    top: [],
+    recent: [
+      { id: 'tx_1', date: '2026-10-20', book: 'home', kind: 'expense', kind_label: '支出', amount_minor: 1200, paid_minor: 1200, category_label: '餐饮', counterparty: null, note: '午饭', entered_by_name: '妈', status: 'confirmed' },
+      { id: 'tx_2', date: '2026-10-19', book: 'shop', kind: 'transfer', kind_label: '转账', amount_minor: 100000, paid_minor: 100000, category_label: null, counterparty: null, note: '取现', entered_by_name: '杨', status: 'confirmed' },
+    ],
+    debt: {
+      as_of: '2026-10-30',
+      receivable: { total_minor: 48000, people_count: 1, scattered_minor: 0, people: [{ name: '老陈', open_minor: 48000, age_days: 47, oldest_on: '2026-09-01' }] },
+      payable: { total_minor: 0, people_count: 0, scattered_minor: 0, people: [] },
+    },
+  })
+}
+
+test('the trend chart draws one bar per day and a line only when money came in', () => {
+  const tree = openDock(fullPayload())
+  const bars = findAll(tree, (node) => typeof node.props.title === 'string' && node.props.title.includes('支出'))
+  assert.equal(bars.length, 30)
+  const polylines = findAll(tree, (node) => node.type === 'polyline')
+  assert.equal(polylines.length, 1)
+  const withoutIncome = fullPayload()
+  withoutIncome.series.points = withoutIncome.series.points.map((point) => ({ ...point, home_income_minor: 0 }))
+  assert.equal(findAll(openDock(withoutIncome), (node) => node.type === 'polyline').length, 0, 'no income, no line')
+})
+
+test('the dock names the unclassified money instead of hiding it in 其他', () => {
+  const rendered = texts(openDock(fullPayload())).join(' | ')
+  assert.match(rendered, /未归类 1 笔 ¥3\.00/)
+  assert.match(rendered, /餐饮/)
+  assert.match(rendered, /店里卖出/)
+  assert.match(rendered, /赊出 \| ¥480\.00/)
+})
+
+test('recent rows carry the recorder, and cash moves admit they are not spending', () => {
+  const rendered = texts(openDock(fullPayload())).join(' | ')
+  assert.match(rendered, /午饭 · 餐饮/)
+  assert.match(rendered, /不计收支/)
+  assert.match(rendered, /应收（别人欠我）/)
+  assert.match(rendered, /老陈/)
+  assert.match(rendered, /47 天/)
+  assert.match(rendered, /没有欠账/)
+})
+
+test('an empty range says so and offers the way back', () => {
+  const empty = rangePayload({
+    storage: { data_dir: '/tmp/ledger', is_default: true, entries: 0, quarantined: 0, bytes: 0, matched: 0, git_ready: false, git_enabled: true, git_error: null, git_nested_in: null },
+    totals: { home: { count: 0, expense_minor: 0, refund_minor: 0, income_minor: 0, net_minor: 0, uncategorized_count: 0, active_days: 0, avg_per_day_minor: 0 } },
+    summary: [{ kind: 'empty', text: '这段时间没有记录。' }],
+    series: { bucket: 'day', points: [] },
+  })
+  const tree = openDock(empty)
+  const rendered = texts(tree).join(' | ')
+  assert.match(rendered, /这段时间没有记录/)
+  assert.match(rendered, /换个范围试试/)
+  const presets = findAll(tree, (node) => node.type === 'button' && texts(node).join('') === '近 30 天')
+  assert.ok(presets.length >= 1, 'the way back is a real button')
 })
