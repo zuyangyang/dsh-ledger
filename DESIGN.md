@@ -647,80 +647,16 @@ Yang 会在公网机器上搭一个手机入口，父母用手机跟 DSH 说话�
 
 ### 8.1 为什么必须有客户端半
 
-之前都是"聊天优先"：模型调工具、回执贴回聊天。但账本的价值一半在**看得见**——本月花在哪、谁还欠着、近半年趋势。DSH 的扩展点里，最贴合的是 `settings.section`（设置左侧导航的一个区块），memory 和 diary 都这么做，用户也已经习惯在那里找插件配置。
+### 8.8 文件是唯一的真相（v0.5.1 修）
 
-### 8.2 契约（零构建，不引 esbuild）
+### 8.9 不往别人的仓库里提交（v0.5.1 修）
 
-官方做法是 esbuild 打包成 `window.__ModuleLoader__.load({id, factory})`。我们只有**一个文件、一份依赖（react 来自宿主冻结基线）**，所以手写这个信封即可，仓库里不放构建产物生成器：
+实机里出现过一个更隐蔽的坑：Yang 把账本指到 `/Volumes/Zuyang/dsh/IM_content/ledger`，而这个目录本身在一个已有的 git 仓库里。原来的 `git init` 只检查 `rev-parse --is-inside-work-tree`——嵌套时它**返回成功**，于是插件以为"仓库已就绪"，之后的每次自动提交都写进了别人的历史（`git status` 里赫然出现 `M entries.ndjson`）。
 
-```json
-"exports": { "./client": "./lib/client.js" },
-"dsh": { "client": { "platform": "web" } }
-```
+规则改成：只有当 `git rev-parse --show-toplevel` 等于账本目录本身时才算"我们自己的仓库"；否则
 
-| 约束 | 原因 | 证据 |
-|---|---|---|
-| `id` 必须是包名 `dsh-ledger` | 宿主按包名做模块缓存与 `<id>/client` 解析 | dsh-client-modules README |
-| 只 `require('react')`，不 require 别的 | react/react-dom 是 shell 冻结基线，其余依赖必须打进 bundle | 同上 |
-| `platform: 'web'` 必填 | 缺了不产浏览器 bundle，设置页永远空 | dsh-package-manifest README |
-| 浏览器半只导出 `apply`/`inject` | 宿主只读这两个字段；`__test` 是给 vm 测试的加法接缝 | memory 的 client.js 同款 |
+- 不 init、不 commit，`enabled = false`，只 warn 一次；
+- `git.nestedRepo` 记下拦到谁的仓库，`ledger_doctor` 与面板底部都会明说；
+- 账目照常落盘，只是没有历史；想要历史就把账本挪到独立目录再 `git init`。
 
-### 8.3 数据通路
-
-设置面板**不能用 settings wire**：它只服务宿主硬编码的 namespace allowlist，第三方插件的命名空间永远不可远端写（memory 的源码注释里写死了这一条）。所以走插件自建的 `webServer.register`：
-
-| 路由 | 方法 | 返回 |
-|---|---|---|
-| `/api/ledger/summary?month=YYYY-MM` | GET | 一个月两本账的看板 payload（见 §8.5） |
-| `/api/ledger/config` | GET | 12 个可改项的生效值 + 来源（panel/deployment/default） |
-| `/api/ledger/config` | POST | `{values:{…}}` → 校验后落盘，回 `restart_required` |
-
-两条路由都用 `ctx.inject(['webServer'], …)` 注册，headless 环境没有 webServer 时静默跳过，绝不因为"没有浏览器"让插件起不来。
-
-### 8.4 配置优先级与"重启才生效"
-
-配置文件是部署方的（`~/.dsh/profiles/<profile>/cordis.patch.yml`），面板没有安全的 YAML 改写路径——写坏了整个 DSH 起不来。所以面板把改动写进自己的文件：
-
-```
-~/.dsh/ledger-ui.json   { version: 1, values: { … } }   // 面板值，优先
-~/.dsh/profiles/.../cordis.patch.yml                     // 部署值，其次
-Config 内置默认                                          // 兜底
-```
-
-- 合并点只有一处：`mergeConfig(deployment, overrides)`，clamp/归一化仍在 `normalizeConfig` 里，面板值也要过同一道关。
-- **每个值都要过白名单校验**（类型、枚举、区间、HH:MM）后才落盘：一个非法值绝不能让下一次启动崩在配置阶段。
-- 生效时机是 `apply()` 读一次配置，所以保存后必须重启 DSH。面板上明写这句，而不是假装热更新。
-
-### 8.5 看板 payload（`lib/dashboard.js`，纯函数）
-
-`buildDashboard({records, config, stats, git, month})` → 
-
-| 块 | 内容 |
-|---|---|
-| `storage` | 目录、是否默认位置、条数、隔离行、git 状态与错误 |
-| `home` | 支出/退款/收入/净额、类目占比（万分比，合计恰好 10000）、按天、最大三笔 |
-| `shop` | 卖出、零售/批发、现金流入/流出/净额、进货总额与已付、店面支出 |
-| `receivable`/`payable` | 总额、人数、按人明细（含账龄天数） |
-| `recent` | 最近 12 条（作废行不计） |
-| `months` | 近六个月：家里支出 + 店里卖出 |
-
-全部复用 `views/report.js`、`views/debt.js` 的既有口径——**看板不发明新算法**，否则聊天里的数和面板上的数会打架。
-
-### 8.6 前端长什么样
-
-单文件 React（`React.createElement`，无 JSX、无构建）：
-
-- 顶部：月份切换（近六个月）+ 刷新 + 账本条数；
-- 六张指标卡：家里支出 / 家里收入 / 店里卖出 / 现金净流 / 应收未收 / 应付未付；
-- 类目占比横条、欠账两张小表、近六月趋势条、最近 12 条；
-- 配置区：12 个字段（布尔用开/关按钮，枚举用中文按钮，整数用 number 输入，路径用文本框），每项带来源徽标；
-- 底部：账本目录（默认/自定义）、git 可用性、隔离行、配置文件路径。
-
-只用 `--dsw-alias-*` 主题 token，深浅色自动跟随；不引图表库（趋势条就是宽度百分比），也就不需要为 50 KB 的图表库维护打包器。
-
-### 8.7 怎么测（不打开浏览器）
-
-- `test/dashboard.test.js`：纯函数，用假记录验口径（含作废行、跨年 `shiftMonth`、六个月趋势）。
-- `test/web.test.js`：假 `webServer` + 假 req/res 打两条路由，验 200/400/405、`no-store`、落盘与 `restart_required`。
-- `test/client.test.js`：`node:vm` 载入 `lib/client.js`，用**假 React**（`createElement` 返回普通对象）跑 `apply()` 与纯展示组件，验注册形状（id/order/label）、金额格式、以及"没数据/空账本"也能渲染出可读文案。
-- `npm run verify`：额外断言 `package.json` 导出了 `./client`、文件存在、`id` 与包名一致、`platform === 'web'`。
+这条和 §8.8 是同一条原则的两面：**只对自己的文件负责**——读别人的写入，但不写别人的历史。

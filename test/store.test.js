@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { mkdtempSync, readFileSync, writeFileSync, readdirSync } from 'node:fs'
+import { appendFileSync, mkdtempSync, readFileSync, writeFileSync, readdirSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import test from 'node:test'
@@ -133,4 +133,51 @@ test('peekJournal counts another directory without creating it', () => {
   const peekedMissing = peekJournal(missing)
   assert.equal(peekedMissing.exists, false)
   assert.equal(readdirSync(tmpdir()).includes(missing.split('/').pop()), false)
+})
+test('a write from another process shows up without reopening', () => {
+  // The dashboard is served by the host while the tools run in the session
+  // process, so the reader must never trust a snapshot from activation time.
+  const { dir, store } = freshStore()
+  assert.equal(store.all().length, 0)
+  const writer = new LedgerStore({ dataDir: dir, logger: quiet }).init()
+  writer.append([record({ id: 'tx_from_phone', request_id: 'req_phone' })])
+  assert.equal(store.all().length, 1, 'reader sees the phone entry immediately')
+  assert.equal(store.get('tx_from_phone').id, 'tx_from_phone')
+  assert.equal(store.stats().entries, 1)
+  // And it must not see the same line twice after its own append.
+  store.append([record({ id: 'tx_local', request_id: 'req_local' })])
+  assert.equal(store.all().length, 2)
+})
+
+test('a hand-edited journal line is picked up on the next read', () => {
+  const { dir, store } = freshStore()
+  store.append([record({ id: 'tx_a' })])
+  appendFileSync(join(dir, 'entries.ndjson'), JSON.stringify(record({ id: 'tx_manual', request_id: 'req_manual' })) + '\n')
+  assert.equal(store.all().length, 2)
+})
+
+test('meta written by another process is reloaded', () => {
+  const { dir, store } = freshStore()
+  assert.deepEqual(store.all(), [])
+  const other = new LedgerStore({ dataDir: dir, logger: quiet }).init()
+  other.patchMeta({ brief: false, lastBookByActor: { Mei: 'shop' } })
+  store.all() // any read refreshes meta too
+  assert.equal(store.meta.brief, false)
+  assert.equal(store.lastBookForActor('Mei'), 'shop')
+})
+
+test('a repeated read that finds nothing new keeps the same records', () => {
+  const { store } = freshStore()
+  store.append([record()])
+  const first = store.all()
+  const second = store.all()
+  assert.equal(first, second, 'no reload when the file did not change')
+})
+
+test('quarantine is reported after a foreign bad line appears', () => {
+  const { dir, store } = freshStore()
+  store.append([record()])
+  appendFileSync(join(dir, 'entries.ndjson'), '{ not json\n')
+  assert.equal(store.all().length, 1)
+  assert.equal(store.stats().quarantined, 1)
 })
