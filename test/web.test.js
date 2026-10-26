@@ -5,7 +5,7 @@ import { join } from 'node:path'
 import test from 'node:test'
 
 import { normalizeConfig } from '../lib/config.js'
-import { CONFIG_ROUTE, DASHBOARD_ROUTE, registerWebRoutes } from '../lib/web.js'
+import { CONFIG_ROUTE, DASHBOARD_ROUTE, RANGE_ROUTE, registerWebRoutes } from '../lib/web.js'
 
 function fakeCtx() {
   const routes = new Map()
@@ -107,4 +107,51 @@ test('a broken body is a 400, not a crash', async () => {
   await ctx.routes.get(CONFIG_ROUTE)(req, response)
   assert.equal(response.status, 400)
   assert.equal(JSON.parse(response.body).error, 'body must be JSON')
+})
+test('the range route answers a window, with people and their names', async () => {
+  const ctx = fakeCtx()
+  const runtime = runtimeWith([record])
+  runtime.store.meta = { actorNames: { yang: '杨' } }
+  registerWebRoutes(ctx, runtime, { baseConfig: {}, uiPath: join(mkdtempSync(join(tmpdir(), 'ledger-web-')), 'ui.json') })
+  assert.equal(ctx.routes.has(RANGE_ROUTE), true)
+
+  const response = fakeResponse()
+  await ctx.routes.get(RANGE_ROUTE)(
+    fakeRequest({ url: '/api/ledger/range?from=2026-10-01&to=2026-10-30&group=actor&book=home' }),
+    response,
+  )
+  assert.equal(response.status, 200)
+  assert.equal(response.headers['cache-control'], 'no-store')
+  const payload = JSON.parse(response.body)
+  assert.equal(payload.range.from, '2026-10-01')
+  assert.equal(payload.range.days, 30)
+  assert.equal(payload.series.points.length, 30)
+  assert.equal(payload.totals.home.expense_minor, 2690)
+  assert.equal(payload.totals.shop, undefined)
+  assert.equal(payload.actors[0].name, '杨')
+  assert.equal(payload.actors[0].expense_minor, 2690)
+  assert.ok(payload.summary.length > 0)
+})
+
+test('the range route refuses what it cannot answer', async () => {
+  const ctx = fakeCtx()
+  registerWebRoutes(ctx, runtimeWith([record]), { baseConfig: {}, uiPath: join(mkdtempSync(join(tmpdir(), 'ledger-web-')), 'ui.json') })
+  const route = ctx.routes.get(RANGE_ROUTE)
+
+  for (const url of [
+    '/api/ledger/range?group=person',
+    '/api/ledger/range?book=both',
+    '/api/ledger/range?from=2026-13-01',
+    '/api/ledger/range?from=2026-10-30&to=2026-10-01',
+    '/api/ledger/range?from=2020-01-01&to=2026-10-01',
+  ]) {
+    const response = fakeResponse()
+    await route(fakeRequest({ url }), response)
+    assert.equal(response.status, 400, url)
+    assert.ok(JSON.parse(response.body).error.length > 0, url)
+  }
+
+  const wrongMethod = fakeResponse()
+  await route(fakeRequest({ method: 'POST', url: '/api/ledger/range' }), wrongMethod)
+  assert.equal(wrongMethod.status, 405)
 })
