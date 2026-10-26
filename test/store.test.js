@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import test from 'node:test'
 
-import { LedgerStore } from '../lib/store.js'
+import { LedgerStore, peekJournal } from '../lib/store.js'
 
 const quiet = { warn: () => {} }
 
@@ -116,4 +116,21 @@ test('stats count entries and bytes', () => {
   const stats = store.stats()
   assert.equal(stats.entries, 1)
   assert.ok(stats.bytes > 0)
+})
+test('peekJournal counts another directory without creating it', () => {
+  const empty = mkdtempSync(join(tmpdir(), 'ledger-peek-empty-'))
+  const peekedEmpty = peekJournal(empty)
+  assert.equal(peekedEmpty.exists, false)
+  assert.equal(peekedEmpty.entries, 0)
+
+  const used = mkdtempSync(join(tmpdir(), 'ledger-peek-'))
+  writeFileSync(join(used, 'entries.ndjson'), '{"id":"a"}\n\n{"id":"b"}\n')
+  const peeked = peekJournal(used)
+  assert.equal(peeked.exists, true)
+  assert.equal(peeked.entries, 2)
+
+  const missing = join(tmpdir(), 'ledger-does-not-exist-' + Date.now())
+  const peekedMissing = peekJournal(missing)
+  assert.equal(peekedMissing.exists, false)
+  assert.equal(readdirSync(tmpdir()).includes(missing.split('/').pop()), false)
 })
