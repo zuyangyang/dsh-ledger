@@ -11,6 +11,10 @@ import { join } from 'node:path'
 
 const root = join(import.meta.dirname, '..')
 const dataDir = mkdtempSync(join(tmpdir(), 'ledger-verify-'))
+// Hermetic: the plugin merges panel-saved settings from $DSH_HOME/ledger-ui.json,
+// so point that at a scratch directory — otherwise this check reads the
+// developer's real settings and writes into their real journal.
+process.env.DSH_HOME = mkdtempSync(join(tmpdir(), 'ledger-verify-home-'))
 const plugin = await import('../lib/index.js')
 
 const tools = []
