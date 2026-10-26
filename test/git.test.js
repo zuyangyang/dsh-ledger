@@ -62,3 +62,36 @@ test('commands outside git are never required: only the ignored paths are added'
   const status = spawnSync('git', ['status', '--porcelain'], { cwd: dir, encoding: 'utf8' }).stdout
   assert.equal(status.trim(), '')
 })
+test('a journal inside somebody else\'s repository is left alone', () => {
+  // /Volumes/.../IM_content is a real repository in the wild; committing the
+  // household book into it would mix two histories. Simulate that layout.
+  const dir = freshDir()
+  const calls = []
+  const warnings = []
+  const run = (args, cwd) => {
+    calls.push(args.join(' '))
+    if (args.join(' ') === 'rev-parse --is-inside-work-tree') return { ok: true, stdout: 'true\n', stderr: '', error: null }
+    if (args.join(' ') === 'rev-parse --show-toplevel') return { ok: true, stdout: '/somewhere/else/IM_content\n', stderr: '', error: null }
+    return { ok: true, stdout: '', stderr: '', error: null }
+  }
+  const git = new GitCommitter({ dataDir: dir, logger: { warn: (message) => warnings.push(message) }, run }).init()
+  assert.equal(git.ready, false)
+  assert.equal(git.enabled, false)
+  assert.equal(git.nestedRepo, '/somewhere/else/IM_content')
+  assert.equal(calls.some((call) => call === 'init -q -b main'), false, 'must not initialise inside a foreign repo')
+  assert.equal(warnings.length, 1)
+  assert.match(warnings[0], /not committing there/)
+})
+
+test('a journal that owns its repository still commits', () => {
+  const dir = freshDir()
+  const run = (args, cwd) => {
+    const joined = args.join(' ')
+    if (joined === 'rev-parse --is-inside-work-tree') return { ok: true, stdout: 'true\n', stderr: '', error: null }
+    if (joined === 'rev-parse --show-toplevel') return { ok: true, stdout: cwd + '\n', stderr: '', error: null }
+    return { ok: true, stdout: '', stderr: '', error: null }
+  }
+  const git = new GitCommitter({ dataDir: dir, logger: quiet, run }).init()
+  assert.equal(git.ready, true)
+  assert.equal(git.nestedRepo, null)
+})
