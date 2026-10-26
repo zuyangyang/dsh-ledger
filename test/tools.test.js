@@ -79,7 +79,7 @@ test('the sender in the IM source block becomes entered_by and routes the book',
   assert.equal(result.book, 'shop')
   assert.equal(result.kind, 'sale')
   const stored = runtime.store.all()[0]
-  assert.equal(stored.actor_source, 'im_source')
+  assert.equal(stored.actor_source, 'im_source_name')
   assert.equal(stored.provenance.source_text.startsWith('卖了480'), true)
 })
 
@@ -198,6 +198,19 @@ test('export writes derived files that can be deleted and rebuilt', async () => 
   assert.match(body, /32\.00/)
   const debt = await run(exporter, { what: 'debt' })
   assert.equal(readdirSync(join(dataDir, 'exports', 'obsidian', 'debt')).length, 1)
+})
+
+test('a message with only a sender id is still attributed', async () => {
+  const { add, runtime } = setup()
+  const result = await run(add, {
+    amount: '18',
+    note: '打车',
+    source_text: '打车18<dsh_im_source>{"channel":"weixin","senderId":"wxid_dad_only"}</dsh_im_source>',
+    item_index: 0,
+  })
+  const stored = runtime.store.get(result.id)
+  assert.equal(stored.entered_by, 'wxid_dad_only')
+  assert.equal(stored.actor_source, 'im_source_id')
 })
 
 test('the doctor reports where the journal lives', async () => {
