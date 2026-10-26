@@ -67,13 +67,15 @@ pnpm add "dsh-ledger@link:/Volumes/Zuyang/deepseek_harness_plugin/dsh-ledger"
 
 ## 配置
 
-部署级配置写在 profile 的 patch 里（`~/.dsh/profiles/desktop/cordis.patch.yml`）：
+部署级配置写在 profile 的 patch 里（`~/.dsh/profiles/desktop/cordis.patch.yml`）。插件已自带一条，取消注释即可改：
 
 ~~~yaml
 - id: dsh-ledger
   name: dsh-ledger
   config:
-    dataDir: ~/.dsh/ledger        # 账本目录（自动 git init，自动提交，绝不 push）
+    # 账本放哪：默认 ~/.dsh/ledger。支持 ~、$HOME、绝对路径；相对路径按家目录算。
+    # 换目录 = 换一本新账，旧数据不会自己搬过去（见下一节"搬家"）。
+    # dataDir: ~/Documents/Ledger
     defaultActor: yang            # 认不出来是谁记的时算谁的
     defaultBook: home             # 没说是店里还是家里时的默认账本
     shopName: 店里
@@ -83,7 +85,27 @@ pnpm add "dsh-ledger@link:/Volumes/Zuyang/deepseek_harness_plugin/dsh-ledger"
     commitDebounceSec: 60
 ~~~
 
-运行时状态（谁上次记的哪本、夜间已发记录、类目别名）在 `<dataDir>/meta.json`，不用手改。
+所有键在 `Config` 里都带中文说明，`--dump-config-schema` 能直接看到。运行时状态（谁上次记的哪本、夜间已发记录、类目别名）在 `<dataDir>/meta.json`，不用手改。
+
+### 换个存储位置（搬家）
+
+1. 先停 DSH（账本不需要停，但换了位置要重启才生效）；
+2. 把旧账本整目录拷过去：`cp -a ~/.dsh/ledger/. ~/Documents/Ledger/`；
+3. 在 patch 里写 `dataDir: ~/Documents/Ledger`，重启；
+4. 聊天里 `ledger_doctor` 应显示"（自定义位置）"和你原来的记录条数。
+
+忘了拷也没关系：启动日志会 warn，`ledger_doctor` 会报"默认目录里还有 N 条旧记录"，把命令复制粘贴即可。
+
+## 谁记的（entered_by）
+
+dsh-im 会把发送者写进消息文本（`<dsh_im_source>` 块），插件按这个顺序认人：
+
+1. 模型显式传的 `entered_by`；
+2. 块里的 `senderName`（微信昵称/备注名）；
+3. **没有昵称就用 `senderId`**（微信分配给这个人的唯一 id，难看但不会认错人）；
+4. 都没有就用配置里的 `defaultActor`（默认 `yang`）。
+
+实际用了哪一级会记在每条记录的 `actor_source` 上（`param` / `im_source_name` / `im_source_id` / `default`）。`ledger_doctor` 会按这个分组报数——如果全是 `default`，说明 dsh-im 的"上下文增强"还没打开。
 
 ## 数据在哪，怎么保证不丢
 
@@ -100,7 +122,7 @@ pnpm add "dsh-ledger@link:/Volumes/Zuyang/deepseek_harness_plugin/dsh-ledger"
 4. `老陈还了300` → 还欠 180。
 5. `改了，最后那笔是500不是480` → 回执显示 480 → 500。
 6. `外面还欠多少` → 按人列表 + 账龄。
-7. 让父母用微信各发一句，检查 `ledger_doctor` 里的"人物表"，确认谁记的记对了。
+7. 让父母用微信各发一句，跑 `ledger_doctor`：`actor_sources` 里应出现 `im_source_name`（有昵称）或 `im_source_id`（没昵称），而不是清一色 `default`。
 
 ## 已知限制
 
