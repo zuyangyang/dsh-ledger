@@ -362,3 +362,45 @@ test('an empty range says so and offers the way back', () => {
   const presets = findAll(tree, (node) => node.type === 'button' && texts(node).join('') === '近 30 天')
   assert.ok(presets.length >= 1, 'the way back is a real button')
 })
+function actorPayload() {
+  const payload = fullPayload()
+  const dayKeys = payload.series.points.map((point) => point.key)
+  const points = (values) => dayKeys.map((key) => ({ key, label: key.slice(5), minor: values[key] || 0, count: values[key] ? 1 : 0 }))
+  payload.actors = [
+    {
+      key: 'ma', name: '妈', name_source: 'alias', expense_minor: 1200, refund_minor: 0, count: 2,
+      share_bp: 9000, uncategorized_count: 1, avg_minor: 600, active_days: 2,
+      points: points({ '2026-10-05': 1200 }),
+    },
+    {
+      key: 'o9cq806i@im.wechat', name: '微信用户·o9cq806i', name_source: 'id', expense_minor: 300, refund_minor: 0, count: 1,
+      share_bp: 1000, uncategorized_count: 0, avg_minor: 300, active_days: 1,
+      points: points({ '2026-10-09': 300 }),
+    },
+  ]
+  return payload
+}
+
+test('the per-person view ranks recorders and lets a name be fixed in place', () => {
+  const tree = openDock(actorPayload(), { view: dockView({ group: 'actor' }) })
+  const rendered = texts(tree).join(' | ')
+  assert.match(rendered, /谁记的/)
+  assert.match(rendered, /2 人/)
+  assert.match(rendered, /妈/)
+  assert.match(rendered, /90\.0%/)
+  assert.match(rendered, /1 未归类/)
+  assert.match(rendered, /微信用户·o9cq806i/)
+  const renames = findAll(tree, (node) => node.type === 'input' && String(node.props['aria-label'] || '').includes('改名'))
+  assert.equal(renames.length, 2)
+  assert.equal(renames[0].props.defaultValue, '妈')
+  const columns = findAll(tree, (node) => node.props.style && node.props.style.flexDirection === 'column-reverse')
+  assert.equal(columns.length, 30, 'one stacked column per day')
+})
+
+test('the per-person view is only built when the lens is per-person', () => {
+  const bookMode = texts(openDock(actorPayload(), { view: dockView() })).join(' | ')
+  assert.equal(/谁记的/.test(bookMode), false)
+  const { module } = loadClient()
+  const empty = module.__test.ActorBoard({ actors: [], onRename: () => {} })
+  assert.match(texts(empty).join(' | '), /这段时间没有人记过账/)
+})

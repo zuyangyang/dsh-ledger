@@ -5,7 +5,7 @@ import { join } from 'node:path'
 import test from 'node:test'
 
 import { normalizeConfig } from '../lib/config.js'
-import { CONFIG_ROUTE, DASHBOARD_ROUTE, RANGE_ROUTE, registerWebRoutes } from '../lib/web.js'
+import { ACTORS_ROUTE, CONFIG_ROUTE, DASHBOARD_ROUTE, RANGE_ROUTE, registerWebRoutes } from '../lib/web.js'
 
 function fakeCtx() {
   const routes = new Map()
@@ -153,5 +153,36 @@ test('the range route refuses what it cannot answer', async () => {
 
   const wrongMethod = fakeResponse()
   await route(fakeRequest({ method: 'POST', url: '/api/ledger/range' }), wrongMethod)
+  assert.equal(wrongMethod.status, 405)
+})
+test('a recorder can be named without touching the journal', async () => {
+  const ctx = fakeCtx()
+  const runtime = runtimeWith([record])
+  const patches = []
+  runtime.store.meta = { actorNames: { ma: '妈' } }
+  runtime.store.patchMeta = (patch) => { patches.push(patch); runtime.store.meta = { ...runtime.store.meta, ...patch } }
+  registerWebRoutes(ctx, runtime, { baseConfig: {}, uiPath: join(mkdtempSync(join(tmpdir(), 'ledger-web-')), 'ui.json') })
+  const route = ctx.routes.get(ACTORS_ROUTE)
+  assert.ok(route, 'actors route is registered')
+
+  const saved = fakeResponse()
+  await route(fakeRequest({ method: 'POST', body: { key: 'o9cq806i@im.wechat', name: '  妈  ' } }), saved)
+  assert.equal(saved.status, 200)
+  assert.equal(JSON.parse(saved.body).actorNames['o9cq806i@im.wechat'], '妈')
+  assert.deepEqual(patches, [{ actorNames: { ma: '妈', 'o9cq806i@im.wechat': '妈' } }])
+  assert.equal(runtime.store.all().length, 1, 'the journal is never rewritten by a rename')
+
+  const cleared = fakeResponse()
+  await route(fakeRequest({ method: 'POST', body: { key: 'ma', name: '' } }), cleared)
+  assert.deepEqual(JSON.parse(cleared.body).actorNames, { 'o9cq806i@im.wechat': '妈' })
+
+  for (const body of [{}, { key: '' }, { key: 'x'.repeat(201), name: 'a' }]) {
+    const rejected = fakeResponse()
+    await route(fakeRequest({ method: 'POST', body }), rejected)
+    assert.equal(rejected.status, 400, JSON.stringify(body))
+  }
+
+  const wrongMethod = fakeResponse()
+  await route(fakeRequest(), wrongMethod)
   assert.equal(wrongMethod.status, 405)
 })
