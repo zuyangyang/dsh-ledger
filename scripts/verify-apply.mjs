@@ -9,18 +9,29 @@ import { mkdtempSync, readFileSync, existsSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
+const root = join(import.meta.dirname, '..')
 const dataDir = mkdtempSync(join(tmpdir(), 'ledger-verify-'))
 const plugin = await import('../lib/index.js')
 
 const tools = []
 const skills = []
 const prompts = []
+const routes = []
+const effects = []
+const webCtx = {
+  logger: { info: () => {}, warn: () => {} },
+  effect: (factory) => effects.push(factory()),
+  webServer: { register: ({ path }) => { routes.push(path); return () => {} } },
+}
 const ctx = {
   logger: { info: () => {}, warn: () => {} },
   tools: { register: (tool) => tools.push(tool) },
   skills: { register: (skill) => skills.push(skill) },
   systemPrompt: { context: (block) => prompts.push(block) },
   agents: { list: () => [] },
+  inject: (names, run) => run(webCtx),
+  effect: (factory) => effects.push(factory()),
+  webServer: webCtx.webServer,
 }
 
 const dispose = plugin.apply(ctx, {
@@ -56,6 +67,22 @@ else if (readFileSync(journal, 'utf8').trim().split('\n').length !== 1) problems
 const brief = prompts[0]?.text?.({})
 if (typeof brief !== 'string' || brief.length === 0) problems.push('brief prompt rendered empty')
 if (existsSync(join(dataDir, '.git')) === false) problems.push('journal directory was not git-initialised')
+if (!routes.includes('/api/ledger/summary')) problems.push('dashboard route was not registered')
+if (!routes.includes('/api/ledger/config')) problems.push('settings route was not registered')
+
+// The browser half is a prebuilt module, so nothing imports it: check the
+// manifest points at a real file that registers under the package id.
+const manifest = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'))
+const clientEntry = manifest.exports?.['./client']
+const clientPath = typeof clientEntry === 'string' ? clientEntry : clientEntry?.default
+if (!clientPath) problems.push('package.json does not export ./client')
+else if (!existsSync(join(root, clientPath))) problems.push('client entry is missing: ' + clientPath)
+else {
+  const source = readFileSync(join(root, clientPath), 'utf8')
+  if (!source.includes("id: 'dsh-ledger'")) problems.push('client bundle must load under the package id')
+  if (manifest.dsh?.client?.platform !== 'web') problems.push('manifest must declare dsh.client.platform = web')
+}
+if (manifest.version === undefined) problems.push('package.json has no version')
 
 dispose()
 
