@@ -8,7 +8,7 @@
 | 外面还欠多少（应收/应付） | 赊账 − 已收 − 已还，按人 FIFO 核销 | 谁该还钱、该给谁钱 |
 | 赚了多少 | v1 **不算** | 没记成本价，硬算会骗人 |
 
-设计文档：[DESIGN.md](./DESIGN.md) · 周末计划：[WEEKEND.md](./WEEKEND.md)
+设计文档：[DESIGN.md](./DESIGN.md) · 悬浮看板设计：[DASHBOARD.md](./DASHBOARD.md) · 周末计划：[WEEKEND.md](./WEEKEND.md)
 
 ## 现在能做什么
 
