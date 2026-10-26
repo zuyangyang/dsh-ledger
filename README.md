@@ -13,4 +13,8 @@ Design: [DESIGN.md](./DESIGN.md) · Build plan: [WEEKEND.md](./WEEKEND.md)
 
 ## Status
 
-Work in progress. See the commit log for the current step; `npm test` runs the suite.
+Implemented and linked into the ¤desktop¤ profile; restart DSH to load it.
+
+- ¤npm test¤ — 124 tests over the journal, parsers, derived views, receipts and tools
+- ¤npm run verify¤ — loads the plugin the way Cordis does and records one real sentence
+- Chinese usage, install and smoke-test guide: [README.zh.md](./README.zh.md)

@@ -23,18 +23,35 @@
   ],
   "scripts": {
     "test": "node --test 'test/**/*.test.js'",
-    "test:watch": "node --test --watch 'test/**/*.test.js'"
+    "test:watch": "node --test --watch 'test/**/*.test.js'",
+    "verify": "node scripts/dev-shims.mjs && node scripts/verify-apply.mjs"
   },
   "engines": {
     "node": ">=20"
   },
-  "keywords": ["deepseek-harness", "dsh", "cordis", "plugin", "ledger", "bookkeeping", "wechat"],
+  "keywords": [
+    "deepseek-harness",
+    "dsh",
+    "cordis",
+    "plugin",
+    "ledger",
+    "bookkeeping",
+    "wechat"
+  ],
   "peerDependencies": {
     "@deepseek-ai/cordis": "^4.0.1",
-    "@deepseek-ai/schemastery": "^3.18.1"
+    "@deepseek-ai/schemastery": "^3.18.1",
+    "@deepseek-ai/dsh-tools": "*"
   },
   "peerDependenciesMeta": {
-    "@deepseek-ai/cordis": { "optional": true },
-    "@deepseek-ai/schemastery": { "optional": true }
+    "@deepseek-ai/cordis": {
+      "optional": true
+    },
+    "@deepseek-ai/schemastery": {
+      "optional": true
+    },
+    "@deepseek-ai/dsh-tools": {
+      "optional": true
+    }
   }
 }
