@@ -404,3 +404,66 @@ test('the per-person view is only built when the lens is per-person', () => {
   const empty = module.__test.ActorBoard({ actors: [], onRename: () => {} })
   assert.match(texts(empty).join(' | '), /这段时间没有人记过账/)
 })
+/** Load the bundle with a DOM and a react-dom stub, the way a browser would. */
+function loadClientInBrowser() {
+  const appended = []
+  const removed = []
+  const rendered = []
+  const roots = []
+  const document = {
+    getElementById: () => null,
+    createElement: (tag) => ({ tag, id: '', appendChild() {}, remove() { removed.push(this) } }),
+    body: { appendChild: (node) => { appended.push(node); return node } },
+  }
+  const reactDom = {
+    createRoot: (host) => {
+      const root = {
+        render: (element) => { rendered.push(element) },
+        unmount: () => { roots.push('unmounted') },
+      }
+      roots.push({ host })
+      return root
+    },
+  }
+  let entry = null
+  const sandbox = { window: { __ModuleLoader__: { load: (value) => { entry = value } } }, document }
+  vm.runInNewContext(SOURCE, sandbox, { filename: 'client.js' })
+  const react = fakeReact()
+  const module = entry.factory((name) => {
+    if (name === 'react') return react
+    if (name === 'react-dom/client') return reactDom
+    throw new Error('unexpected require: ' + name)
+  })
+  return { module, appended, removed, rendered, roots, document }
+}
+
+test('the dock mounts into its own body node, and is torn down with the plugin', () => {
+  const browser = loadClientInBrowser()
+  const disposers = []
+  const ctx = {
+    slots: {
+      inject: (name, run) => run(),
+      register: () => {},
+    },
+    effect: (fn) => { disposers.push(fn) },
+  }
+  browser.module.apply(ctx)
+  assert.equal(browser.appended.length, 1, 'exactly one host node')
+  assert.equal(browser.appended[0].id, 'dsh-ledger-dock-root')
+  assert.equal(browser.appended[0].tag, 'div')
+  assert.equal(browser.rendered.length, 1, 'something was rendered into it')
+  assert.equal(disposers.length, 1, 'the plugin registers an effect')
+  // cordis calls the effect callback and keeps the disposer it returns.
+  const dispose = disposers[0]()
+  assert.equal(typeof dispose, 'function')
+  dispose()
+  assert.equal(browser.roots.at(-1), 'unmounted', 'the React root is unmounted')
+  assert.equal(browser.removed.length, 1, 'and the node is gone')
+})
+
+test('without a DOM the plugin still registers its settings section', () => {
+  const { module } = loadClient()
+  let registered = 0
+  module.apply({ slots: { inject: (name, run) => run(), register: () => { registered += 1 } } })
+  assert.equal(registered, 1)
+})
