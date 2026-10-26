@@ -158,3 +158,100 @@ test('before the first fetch the panel says so instead of crashing', () => {
   const failed = texts(module.__test.LedgerPanel({ data: null, error: 'HTTP 500' })).join(' | ')
   assert.match(failed, /读不到账本：HTTP 500/)
 })
+function rangePayload(overrides = {}) {
+  return {
+    range: { from: '2026-10-01', to: '2026-10-30', days: 30, label: '10-01 → 10-30', bucket: 'day' },
+    generated_at: '2026-10-30T17:52:10+08:00',
+    storage: { data_dir: '/Users/x/ledger', is_default: false, entries: 4, quarantined: 0, bytes: 900, matched: 3, git_ready: true, git_enabled: true, git_error: null, git_nested_in: null },
+    totals: {
+      home: { count: 2, expense_minor: 1200, refund_minor: 0, income_minor: 0, net_minor: -1200, uncategorized_count: 0, active_days: 2, avg_per_day_minor: 40 },
+      shop: { count: 1, sales_minor: 48000, sales_count: 1, cash_in_minor: 0, cash_out_minor: 0, cash_net_minor: 0, credit_out_minor: 48000, purchase_total_minor: 0, purchase_paid_minor: 0, expense_minor: 0, uncategorized_count: 0 },
+    },
+    series: { bucket: 'day', points: [] },
+    categories: { rows: [], total_minor: 0, uncategorized: { minor: 0, count: 0 } },
+    top: [], recent: [], debt: { as_of: '2026-10-30', receivable: { total_minor: 48000, people_count: 1, people: [], scattered_minor: 0 }, payable: { total_minor: 0, people_count: 0, people: [], scattered_minor: 0 } },
+    compare: { from: '2026-09-01', to: '2026-09-30', previous_minor: 0, current_minor: 1200, delta_minor: 0, delta_bp: 0, comparable: false },
+    summary: [{ kind: 'volume', text: '10-01 → 10-30家里花了 ¥12.00，日均 ¥0.40。' }],
+    ...overrides,
+  }
+}
+
+function dockView(overrides = {}) {
+  return { preset: 'last30', from: '2026-10-01', to: '2026-10-30', group: 'book', book: 'all', ...overrides }
+}
+
+test('the dock shows one button until it is opened', () => {
+  const { module } = loadClient()
+  const { LedgerDock } = module.__test
+  const closed = LedgerDock({ open: false, view: dockView(), onOpen: () => {} })
+  assert.deepEqual(texts(closed), ['账'])
+  assert.equal(typeof closed.type, 'function', 'the button is its own component')
+  const button = closed.type(closed.props)
+  assert.equal(button.type, 'button')
+  assert.equal(button.props['aria-label'], '账本看板')
+})
+
+test('the open dock renders the summary, the cards and where the numbers came from', () => {
+  const { module } = loadClient()
+  const { LedgerDock } = module.__test
+  const tree = LedgerDock({
+    open: true,
+    data: rangePayload(),
+    view: dockView(),
+    onOpen: () => {}, onClose: () => {}, onRefresh: () => {},
+    onPreset: () => {}, onCustomFrom: () => {}, onCustomTo: () => {}, onGroup: () => {}, onBook: () => {},
+  })
+  const rendered = texts(tree).join(' | ')
+  assert.match(rendered, /账本看板/)
+  assert.match(rendered, /10-01 → 10-30/)
+  assert.match(rendered, /家里花了 ¥12\.00/)
+  assert.match(rendered, /家里支出/)
+  assert.match(rendered, /¥12\.00/)
+  assert.match(rendered, /店里卖出/)
+  assert.match(rendered, /应收未收/)
+  assert.match(rendered, /\/Users\/x\/ledger（自定义位置）/)
+  assert.match(rendered, /命中 3 条/)
+  assert.match(rendered, /读于 17:52:10/)
+  assert.match(rendered, /关闭/)
+})
+
+test('a dock that cannot read the journal says so instead of showing zeroes', () => {
+  const { module } = loadClient()
+  const { LedgerDock } = module.__test
+  const failed = texts(LedgerDock({ open: true, data: null, error: 'HTTP 500', view: dockView() })).join(' | ')
+  assert.match(failed, /读不到账本：HTTP 500/)
+  assert.equal(/正在读账本/.test(failed), false)
+  const loading = texts(LedgerDock({ open: true, data: null, error: null, view: dockView() })).join(' | ')
+  assert.match(loading, /正在读账本/)
+})
+
+test('range presets are computed from today, and recognised back', () => {
+  const { module } = loadClient()
+  const { presetRange, presetOf, isoDay, addDaysIso, shiftMonthIso } = module.__test
+  const today = '2026-10-26'
+  // vm 里造出来的对象原型不同，摊平成宿主对象再比。
+  assert.deepEqual({ ...presetRange('last7', today) }, { from: '2026-10-20', to: '2026-10-26' })
+  assert.deepEqual({ ...presetRange('last30', today) }, { from: '2026-09-27', to: '2026-10-26' })
+  assert.deepEqual({ ...presetRange('thisMonth', today) }, { from: '2026-10-01', to: '2026-10-31' })
+  assert.deepEqual({ ...presetRange('lastMonth', today) }, { from: '2026-09-01', to: '2026-09-30' })
+  assert.equal(presetRange('custom', today), null)
+  assert.equal(presetOf({ from: '2026-09-27', to: '2026-10-26' }, today), 'last30')
+  assert.equal(presetOf({ from: '2026-09-01', to: '2026-09-30' }, today), 'lastMonth')
+  assert.equal(presetOf({ from: '2026-01-02', to: '2026-01-09' }, today), 'custom')
+  assert.equal(isoDay(new Date(2026, 9, 5)), '2026-10-05')
+  assert.equal(addDaysIso('2026-03-01', -1), '2026-02-28', 'a leap year matters')
+  assert.equal(addDaysIso('2024-03-01', -1), '2024-02-29')
+  assert.equal(shiftMonthIso('2026-01', -1), '2025-12')
+  assert.equal(shiftMonthIso('2026-12', 1), '2027-01')
+})
+
+test('the dock asks the route for exactly the view it shows', () => {
+  const { module } = loadClient()
+  const { rangeQuery } = module.__test
+  const url = rangeQuery(dockView({ group: 'actor', book: 'home' }))
+  assert.match(url, /^\/api\/ledger\/range\?/)
+  assert.match(url, /from=2026-10-01/)
+  assert.match(url, /to=2026-10-30/)
+  assert.match(url, /group=actor/)
+  assert.match(url, /book=home/)
+})
