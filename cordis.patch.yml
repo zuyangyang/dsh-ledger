@@ -1,0 +1,7 @@
+# dsh-ledger bundle layer.
+#
+# Declared via the `dsh.bundle.patch` manifest, so `dsh plugin add` mounts this
+# insert automatically. User-level overrides live in <dshHome>/ledger.json.
+- insert:
+    - id: dsh-ledger
+      name: dsh-ledger
