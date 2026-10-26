@@ -142,7 +142,7 @@ test('query finds entries by keyword and by month', async () => {
 test('"the last one" can be re-priced, voided and moved between books', async () => {
   const { add, fix } = setup()
   const created = await run(add, { amount: '32', note: '午饭', item_index: 0 })
-  const repriced = await run(fix, { match: { pick: 'last' }, patch: { amount: '40' } })
+  const repriced = await run(fix, { match_pick: 'last', patch_amount: '40' })
   assert.equal(repriced.before.amount_minor, 3200)
   assert.equal(repriced.after.amount_minor, 4000)
   assert.equal(repriced.version, 2)
