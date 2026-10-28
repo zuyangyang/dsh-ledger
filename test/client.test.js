@@ -390,7 +390,9 @@ test('an empty range says so and offers the way back', () => {
 function actorPayload() {
   const payload = fullPayload()
   const dayKeys = payload.series.points.map((point) => point.key)
-  const points = (values) => dayKeys.map((key) => ({ key, label: key.slice(5), minor: values[key] || 0, count: values[key] ? 1 : 0 }))
+  // the server's actor points carry key + minor only — no label. The fixtures kept
+  // inventing one, which is how a crash slipped through.
+  const points = (values) => dayKeys.map((key) => ({ key, minor: values[key] || 0 }))
   payload.actors = [
     {
       key: 'ma', name: '妈', name_source: 'alias', expense_minor: 1200, refund_minor: 0, count: 2,
