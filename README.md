@@ -6,7 +6,8 @@ book records a receivable with a running balance.
 
 - Two books in one append-only journal: `home` (your household) and `shop` (the family store).
 - Three separate readings, never mixed: **cash actually moved**, **who owes whom**, and (later) margin.
-- Every entry remembers **who typed it** (`entered_by`), resolved from the IM source block.
+- Every entry remembers **who typed it** (`entered_by`): the name dsh-im gives the receiving
+  WeChat account (Yang, Mei), then the sender nickname, then the sender id.
 - Data is a plain NDJSON file you can grep, diff, and version with git.
 - A round `账` button in the corner opens a dashboard for any date range: charts, per-recorder lens, debt.
 

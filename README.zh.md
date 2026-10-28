@@ -140,14 +140,17 @@ pnpm add "dsh-ledger@link:/Volumes/Zuyang/deepseek_harness_plugin/dsh-ledger"
 
 ## 谁记的（entered_by）
 
-dsh-im 会把发送者写进消息文本（`<dsh_im_source>` 块），插件按这个顺序认人：
+dsh-im 会把来源写进消息文本（`<dsh_im_source>` 块），插件按这个顺序认人：
 
-1. 模型显式传的 `entered_by`；
-2. 块里的 `senderName`（微信昵称/备注名）；
-3. **没有昵称就用 `senderId`**（微信分配给这个人的唯一 id，难看但不会认错人）；
-4. 都没有就用配置里的 `defaultActor`（默认 `yang`）。
+1. 模型显式传的 `entered_by`（但如果只是照抄块里的 `senderName` / `senderId`，视为没传）；
+2. **dsh-im 里这个微信账号的配置名称**（设置里那两个 Yang / Mei）——两个微信号是两台手机，比"谁发的"更像"谁记的"；需要在该账号的上下文增强里勾上「机器人标识」，块里才会带 `botId`；
+3. 块里的 `senderName`（微信昵称/备注名）；
+4. **没有昵称就用 `senderId`**（微信分配给这个人的唯一 id，难看但不会认错人）；
+5. 都没有就用配置里的 `defaultActor`（默认 `yang`）。
 
-实际用了哪一级会记在每条记录的 `actor_source` 上（`param` / `im_source_name` / `im_source_id` / `default`）。`ledger_doctor` 会按这个分组报数——如果全是 `default`，说明 dsh-im 的"上下文增强"还没打开。
+实际用了哪一级会记在每条记录的 `actor_source` 上（`param` / `im_account` / `im_source_name` / `im_source_id` / `default`）。`ledger_doctor` 会按这个分组报数——如果全是 `default`，说明 dsh-im 的"上下文增强"还没打开。
+
+账号名是从 dsh-im 的配置文件里读的（默认 `~/.dsh/integrations/dsh-weixin/workspaces.json`，配置项 `imAccounts.path`）；改名不用重启 DSH，下一次记账就是新名字；历史记录保持原名不动，想统一显示在面板里改一次别名即可。
 
 ## 数据在哪，怎么保证不丢
 
