@@ -273,6 +273,11 @@ function findAll(node, predicate, out = []) {
   return out
 }
 
+function renderedAxis(tree) {
+  return findAll(tree, (node) => node.props && node.props.style && node.props.style.position === 'absolute'
+    && /^¥/.test(texts(node).join(''))).map((node) => texts(node).join('')).join(' ')
+}
+
 function openDock(payload, extra = {}) {
   const { module } = loadClient()
   return module.__test.LedgerDock({
@@ -323,6 +328,9 @@ test('the trend chart draws one bar per day and a line only when money came in',
   const tree = openDock(fullPayload())
   const bars = findAll(tree, (node) => typeof node.props.title === 'string' && node.props.title.includes('支出'))
   assert.equal(bars.length, 30)
+  // every chart carries a money axis, otherwise a bar is just a grey rectangle
+  assert.match(renderedAxis(tree), /¥500/)
+  assert.match(renderedAxis(tree), /¥0/)
   const polylines = findAll(tree, (node) => node.type === 'polyline')
   assert.equal(polylines.length, 1)
   const withoutIncome = fullPayload()
