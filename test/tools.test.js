@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { existsSync, mkdtempSync, readFileSync, readdirSync } from 'node:fs'
+import { existsSync, mkdtempSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import test from 'node:test'
@@ -50,6 +50,18 @@ test('one sentence becomes one household entry with a receipt', async () => {
   assert.match(result.text, /¥32\.00/)
   assert.match(result.text, /\[家里\]/)
   assert.equal(runtime.store.all().length, 1)
+})
+
+test('a WeChat message is recorded under the account name dsh-im shows', async () => {
+  const imDir = mkdtempSync(join(tmpdir(), 'ledger-im-'))
+  const accountsPath = join(imDir, 'workspaces.json')
+  writeFileSync(accountsPath, JSON.stringify({ version: 2, aliases: { wx_mei: 'Mei' } }))
+  const { add } = setup({ imAccounts: { enabled: true, path: accountsPath } })
+  const source = '午饭32<dsh_im_source>{"channel":"weixin","botId":"wx_mei",'
+    + '"senderName":"微信用户·o9cq806i","senderId":"o9cq806i@im.wechat"}</dsh_im_source>'
+  const result = await run(add, { amount: '32', note: '午饭', source_text: source })
+  assert.equal(result.entered_by, 'Mei')
+  assert.equal(result.text.includes('Mei'), false, 'the receipt does not need the recorder name')
 })
 
 test('a retried identical call does not double-charge', async () => {
