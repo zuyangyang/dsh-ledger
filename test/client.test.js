@@ -185,15 +185,32 @@ function dockView(overrides = {}) {
   return { preset: 'last30', from: '2026-10-01', to: '2026-10-30', group: 'book', book: 'all', ...overrides }
 }
 
-test('the dock shows one button until it is opened', () => {
+test('the corner button stays put and turns into the closer', () => {
   const { module } = loadClient()
   const { LedgerDock } = module.__test
-  const closed = LedgerDock({ open: false, view: dockView(), onOpen: () => {} })
-  assert.deepEqual(texts(closed), ['账'])
-  assert.equal(typeof closed.type, 'function', 'the button is its own component')
-  const button = closed.type(closed.props)
-  assert.equal(button.type, 'button')
-  assert.equal(button.props['aria-label'], '账本看板')
+  const closed = LedgerDock({ open: false, view: dockView(), onOpen: () => {}, onClose: () => {} })
+  assert.equal(Array.isArray(closed), true, 'the dock answers with its parts')
+  assert.equal(closed.length, 1, 'nothing else is drawn when closed')
+  const closedButton = closed[0].type(closed[0].props)
+  assert.equal(closedButton.type, 'button')
+  assert.equal(closedButton.props['aria-label'], '账本看板')
+  assert.deepEqual(texts(closedButton), ['账'])
+
+  let closes = 0
+  const open = LedgerDock({
+    open: true, data: rangePayload(), view: dockView(),
+    onOpen: () => {}, onClose: () => { closes += 1 }, onRefresh: () => {},
+    onPreset: () => {}, onCustomFrom: () => {}, onCustomTo: () => {}, onGroup: () => {}, onBook: () => {},
+  })
+  assert.equal(Array.isArray(open), true)
+  assert.equal(open.length, 2, 'button and dialog, the entrance is not swallowed')
+  const openButton = open[0].type(open[0].props)
+  assert.deepEqual(texts(openButton), ['×'])
+  assert.equal(openButton.props['aria-label'], '关闭账本看板')
+  assert.equal(openButton.props.style.zIndex > 2147482100, true, 'sits above the overlay')
+  openButton.props.onClick()
+  assert.equal(closes, 1, 'clicking it closes the panel')
+  assert.match(texts(open[1]).join(' | '), /账本看板/)
 })
 
 test('the open dock renders the summary, the cards and where the numbers came from', () => {
