@@ -326,7 +326,7 @@ function fullPayload() {
 
 test('the trend chart draws one bar per day and a line only when money came in', () => {
   const tree = openDock(fullPayload())
-  const bars = findAll(tree, (node) => typeof node.props.title === 'string' && node.props.title.includes('支出'))
+  const bars = findAll(tree, (node) => String(node.props['aria-label'] || node.props.title || '').includes('支出'))
   assert.equal(bars.length, 30)
   // every chart carries a money axis, otherwise a bar is just a grey rectangle
   assert.match(renderedAxis(tree), /¥500/)
@@ -474,4 +474,17 @@ test('without a DOM the plugin still registers its settings section', () => {
   let registered = 0
   module.apply({ slots: { inject: (name, run) => run(), register: () => { registered += 1 } } })
   assert.equal(registered, 1)
+})
+
+test('every bar carries its exact numbers in a hover tooltip', () => {
+  const tree = openDock(fullPayload())
+  const rendered = texts(tree).join(' | ')
+  // the day with spending: 12.00 out, nothing in, one entry
+  assert.match(rendered, /10-05\n支出 ¥12\.00\n1 笔/)
+  // the day money came in says so, and the empty days admit zero
+  assert.match(rendered, /10-10\n支出 ¥0\.00\n收入 ¥300\.00\n1 笔/)
+  assert.match(rendered, /10-01\n支出 ¥0\.00\n0 笔/)
+  const stacked = texts(openDock(actorPayload(), { view: dockView({ group: 'actor' }) })).join(' | ')
+  assert.match(stacked, /2026-10-05 · ¥12\.00\n妈 ¥12\.00/)
+  assert.match(stacked, /2026-10-09 · ¥3\.00\n微信用户·o9cq806i ¥3\.00/)
 })
