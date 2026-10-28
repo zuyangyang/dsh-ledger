@@ -44,6 +44,39 @@ test('an explicit argument wins, but a placeholder does not', () => {
   assert.equal(resolveActor({ enteredBy: '未知', sourceText: text, config }).actor, 'wxid_dad')
 })
 
+test('the receiving account name beats the sender nickname', () => {
+  const text = '午饭32<dsh_im_source>{"channel":"weixin","botId":"wx_mei","senderName":"微信用户·o9cq806i","senderId":"o9cq806i@im.wechat"}</dsh_im_source>'
+  const imAccountName = (botId) => (botId === 'wx_mei' ? 'Mei' : null)
+  const resolved = resolveActor({ sourceText: text, config, imAccountName })
+  assert.equal(resolved.actor, 'Mei')
+  assert.equal(resolved.actorSource, 'im_account')
+  assert.equal(resolved.actorField, 'account')
+})
+
+test('a model echoing the source block does not veto the account name', () => {
+  const text = '午饭32<dsh_im_source>{"channel":"weixin","botId":"wx_mei","senderName":"微信用户·o9cq806i","senderId":"o9cq806i@im.wechat"}</dsh_im_source>'
+  const imAccountName = (botId) => (botId === 'wx_mei' ? 'Mei' : null)
+  // Repeating senderName / senderId is not a choice, it is a copy of the block.
+  assert.equal(resolveActor({ enteredBy: '微信用户·o9cq806i', sourceText: text, config, imAccountName }).actor, 'Mei')
+  assert.equal(resolveActor({ enteredBy: 'o9cq806i@im.wechat', sourceText: text, config, imAccountName }).actor, 'Mei')
+})
+
+test('a name the user actually said still wins over the account', () => {
+  const text = '午饭32<dsh_im_source>{"botId":"wx_mei","senderName":"微信用户·o9cq806i"}</dsh_im_source>'
+  const imAccountName = () => 'Mei'
+  const resolved = resolveActor({ enteredBy: '妈妈', sourceText: text, config, imAccountName })
+  assert.equal(resolved.actor, '妈妈')
+  assert.equal(resolved.actorSource, 'param')
+})
+
+test('without a bot id the older order still holds', () => {
+  const imAccountName = (botId) => (botId === 'wx_mei' ? 'Mei' : null)
+  const text = '午饭32<dsh_im_source>{"senderName":"妈","senderId":"wxid_mom"}</dsh_im_source>'
+  assert.equal(resolveActor({ sourceText: text, config, imAccountName }).actor, '妈')
+  const unknownBot = '午饭32<dsh_im_source>{"botId":"wx_nobody","senderName":"妈"}</dsh_im_source>'
+  assert.equal(resolveActor({ sourceText: unknownBot, config, imAccountName }).actor, '妈')
+})
+
 test('without any source the configured default names the entry', () => {
   const resolved = resolveActor({ sourceText: '午饭32', config })
   assert.equal(resolved.actor, 'yang')
