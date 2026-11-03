@@ -3,7 +3,7 @@ import test from 'node:test'
 
 import { normalizeActor, parseImSource, resolveActor } from '../lib/actors.js'
 
-const config = { defaultActor: 'yang' }
+const config = {}
 
 test('the sender name wins when dsh-im supplies one', () => {
   const text = '午饭32<dsh_im_source>{"channel":"weixin","senderName":"妈","senderId":"wxid_mom"}</dsh_im_source>'
@@ -77,12 +77,12 @@ test('without a bot id the older order still holds', () => {
   assert.equal(resolveActor({ sourceText: unknownBot, config, imAccountName }).actor, '妈')
 })
 
-test('without any source the configured default names the entry', () => {
+test('without any source the entry is marked unidentified', () => {
   const resolved = resolveActor({ sourceText: '午饭32', config })
-  assert.equal(resolved.actor, 'yang')
-  assert.equal(resolved.actorSource, 'default')
+  assert.equal(resolved.actor, '未识别')
+  assert.equal(resolved.actorSource, 'unidentified')
   assert.equal(resolved.actorField, null)
-  assert.equal(resolveActor({ sourceText: '午饭32', config: {} }).actor, 'unknown')
+  assert.equal(resolveActor({ sourceText: '午饭32', config: {} }).actor, '未识别')
 })
 
 test('normalizeActor strips padding, control and zero-width characters', () => {

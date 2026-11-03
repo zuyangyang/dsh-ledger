@@ -14,21 +14,21 @@ function tempPath() {
 
 test('saved settings survive a restart', () => {
   const path = tempPath()
-  const saved = saveUiConfig({ shopName: '皮鞋店', nightlyTime: '21:45', autoCommit: false }, path)
+  const saved = saveUiConfig({ shopName: '皮鞋店', defaultBook: 'shop', autoCommit: false }, path)
   assert.equal(saved.ok, true)
-  assert.deepEqual(saved.changed.sort(), ['autoCommit', 'nightlyTime', 'shopName'])
+  assert.deepEqual(saved.changed.sort(), ['autoCommit', 'defaultBook', 'shopName'])
   const reloaded = readUiConfig(path)
   assert.equal(reloaded.values.shopName, '皮鞋店')
-  assert.equal(reloaded.values.nightlyTime, '21:45')
+  assert.equal(reloaded.values.defaultBook, 'shop')
   assert.equal(reloaded.values.autoCommit, false)
   const parsed = JSON.parse(readFileSync(path, 'utf8'))
   assert.equal(parsed.version, 1)
 })
 
 test('panel values win over the deployment patch', () => {
-  const merged = mergeConfig({ dataDir: '/deployment/ledger', shopName: '店里', defaultActor: 'yang' }, { shopName: '皮鞋店' })
+  const merged = mergeConfig({ dataDir: '/deployment/ledger', shopName: '店里', autoCommit: false }, { shopName: '皮鞋店' })
   assert.equal(merged.shopName, '皮鞋店')
-  assert.equal(merged.defaultActor, 'yang')
+  assert.equal(merged.autoCommit, false)
   assert.equal(merged.dataDir, '/deployment/ledger')
   // Keys the panel does not own are ignored even if someone injects them.
   assert.equal(mergeConfig({}, { dailyBudget: 100 }).dailyBudget, undefined)
@@ -52,11 +52,11 @@ test('bad values are refused instead of stored', () => {
 
 test('clearing a key removes the override', () => {
   const path = tempPath()
-  saveUiConfig({ shopName: '皮鞋店', nightlyEnabled: false }, path)
+  saveUiConfig({ shopName: '皮鞋店', defaultBook: 'shop' }, path)
   saveUiConfig({ shopName: '' }, path)
   const values = readUiConfig(path).values
   assert.equal('shopName' in values, false)
-  assert.equal(values.nightlyEnabled, false)
+  assert.equal(values.defaultBook, 'shop')
 })
 
 test('a corrupted file is an empty set, not a crash', () => {
@@ -77,13 +77,11 @@ test('coerceSetting normalises numbers and trims strings', () => {
 })
 
 test('the panel is told where each value came from', () => {
-  const settings = describeSettings({ base: { shopName: '店里', defaultActor: 'yang' }, overrides: { shopName: '皮鞋店' } })
+  const settings = describeSettings({ base: { shopName: '店里', dataDir: '/tmp/ledger' }, overrides: { shopName: '皮鞋店' } })
   const shop = settings.find((setting) => setting.key === 'shopName')
   assert.equal(shop.value, '皮鞋店')
   assert.equal(shop.source, 'ui')
-  const actor = settings.find((setting) => setting.key === 'defaultActor')
-  assert.equal(actor.source, 'deployment')
-  const nightly = settings.find((setting) => setting.key === 'nightlyTime')
-  assert.equal(nightly.source, 'default')
+  const dir = settings.find((setting) => setting.key === 'dataDir')
+  assert.equal(dir.source, 'deployment')
   assert.equal(settings.every((setting) => typeof setting.label === 'string' && setting.label.length > 0), true)
 })

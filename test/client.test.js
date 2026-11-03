@@ -117,7 +117,7 @@ const configPayload = {
   ui_config_path: '/Users/x/.dsh/ledger-ui.json',
   settings: [
     { key: 'dataDir', label: '账本目录', type: 'string', options: null, min: null, max: null, hint: null, value: '/Users/x/.dsh/ledger', source: 'deployment' },
-    { key: 'nightlyEnabled', label: '夜间小结', type: 'boolean', options: null, min: null, max: null, hint: null, value: true, source: 'default' },
+    { key: 'autoCommit', label: '自动提交', type: 'boolean', options: null, min: null, max: null, hint: null, value: true, source: 'default' },
     { key: 'defaultBook', label: '默认账本', type: 'choice', options: ['home', 'shop'], min: null, max: null, hint: null, value: 'home', source: 'default' },
   ],
 }
@@ -140,7 +140,7 @@ test('the panel shows last month by default, honest about storage', () => {
 
 test('the panel renders every config field with its source badge', () => {
   const { module } = loadClient()
-  const text = texts(module.__test.LedgerPanel({ data: payload(), config: configPayload, draft: { nightlyEnabled: false }, error: null })).join(' | ')
+  const text = texts(module.__test.LedgerPanel({ data: payload(), config: configPayload, draft: { autoCommit: false }, error: null })).join(' | ')
   assert.match(text, /配置/)
   assert.match(text, /账本目录/)
   assert.match(text, /配置文件/, 'deployment source badge')
