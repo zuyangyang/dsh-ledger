@@ -4,7 +4,7 @@ import test from 'node:test'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 
-import { DEFAULT_DATA_DIR, normalizeConfig } from '../lib/config.js'
+import { defaultDataDir, normalizeConfig } from '../lib/config.js'
 
 test('defaults match the design doc', () => {
   const c = normalizeConfig({})
@@ -27,7 +27,17 @@ test('the default journal is the one under the dsh home', () => {
   assert.equal(c.dataDir, join(homedir(), '.dsh', 'ledger'))
   assert.equal(c.defaultDataDir, c.dataDir)
   assert.equal(c.dataDirIsDefault, true)
-  assert.equal(normalizeConfig({ dataDir: DEFAULT_DATA_DIR }).dataDirIsDefault, true)
+  assert.equal(normalizeConfig({ dataDir: defaultDataDir() }).dataDirIsDefault, true)
+})
+
+test('two DSH homes never share one journal', () => {
+  // The whole isolation story: a second profile sets its own DSH_HOME and gets
+  // its own default directory without configuring anything.
+  assert.equal(defaultDataDir({ DSH_HOME: '/tmp/home-a' }), join('/tmp/home-a', 'ledger'))
+  assert.equal(defaultDataDir({ DSH_HOME: '/tmp/home-b' }), join('/tmp/home-b', 'ledger'))
+  assert.notEqual(defaultDataDir({ DSH_HOME: '/tmp/home-a' }), defaultDataDir({ DSH_HOME: '/tmp/home-b' }))
+  assert.equal(defaultDataDir({}), join(homedir(), '.dsh', 'ledger'))
+  assert.equal(defaultDataDir({ DSH_HOME: '   ' }), join(homedir(), '.dsh', 'ledger'))
 })
 
 test('a custom directory may use ~, $HOME or a relative path', () => {

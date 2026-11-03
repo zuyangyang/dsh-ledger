@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.0.2
+
+- 默认数据目录改成 <DSH_HOME> 下（原来写死绝对路径）。不同 profile（不同 DSH_HOME）默认各存各的；desktop 的 DSH_HOME 就是 ~/.dsh，行为不变。
+
 ## 1.0.1
 
 - 修复：8 个工具的 output schema 补上 additionalProperties，否则 rc.3 运行时拒绝注册（插件能加载、工具全丢）。

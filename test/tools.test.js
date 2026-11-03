@@ -231,7 +231,7 @@ test('the doctor reports where the journal lives', async () => {
   const result = await run(doctor, {})
   assert.equal(result.entries, 1)
   assert.equal(result.data_dir, dataDir)
-  assert.equal(result.default_data_dir.endsWith('/.dsh/ledger'), true)
+  assert.equal(result.default_data_dir.endsWith('/ledger'), true)
   assert.equal(result.data_dir_is_default, false)
   assert.equal(typeof result.other_data_dir_entries, 'number')
   assert.equal(result.actor_sources.unidentified, 1)
