@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.0.3
+
+- IM 账号别名表默认跟随 $DSH_HOME。第二个 profile 安装的 dsh-im 有自己的账号 id，读桌面的别名表
+  会把每条微信消息都判成「未识别」（记录照样落盘，但 entered_by 和归属都不对）。现在与 dataDir 一样按 profile 分。
+
 ## 1.0.2
 
 - 默认数据目录改成 <DSH_HOME> 下（原来写死绝对路径）。不同 profile（不同 DSH_HOME）默认各存各的；desktop 的 DSH_HOME 就是 ~/.dsh，行为不变。

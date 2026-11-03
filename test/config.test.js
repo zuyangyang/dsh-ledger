@@ -4,7 +4,7 @@ import test from 'node:test'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 
-import { defaultDataDir, normalizeConfig } from '../lib/config.js'
+import { defaultDataDir, defaultImAccountsPath, normalizeConfig } from '../lib/config.js'
 
 test('defaults match the design doc', () => {
   const c = normalizeConfig({})
@@ -38,6 +38,15 @@ test('two DSH homes never share one journal', () => {
   assert.notEqual(defaultDataDir({ DSH_HOME: '/tmp/home-a' }), defaultDataDir({ DSH_HOME: '/tmp/home-b' }))
   assert.equal(defaultDataDir({}), join(homedir(), '.dsh', 'ledger'))
   assert.equal(defaultDataDir({ DSH_HOME: '   ' }), join(homedir(), '.dsh', 'ledger'))
+})
+
+test('the IM account table is read from the profile that is running', () => {
+  // A second profile installs its own dsh-im: same file name, different account
+  // ids. Reading the desktop table makes every message resolve to "unknown"
+  // even though it looks like a valid alias list.
+  assert.equal(defaultImAccountsPath({ DSH_HOME: '/tmp/home-a' }), join('/tmp/home-a', 'integrations', 'dsh-weixin', 'workspaces.json'))
+  assert.equal(defaultImAccountsPath({}), join(homedir(), '.dsh', 'integrations', 'dsh-weixin', 'workspaces.json'))
+  assert.equal(normalizeConfig({}).imAccounts.path, join(homedir(), '.dsh', 'integrations', 'dsh-weixin', 'workspaces.json'))
 })
 
 test('a custom directory may use ~, $HOME or a relative path', () => {
