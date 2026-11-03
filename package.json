@@ -1,6 +1,6 @@
 {
   "name": "dsh-ledger",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Chat-first ledger plugin for DeepSeek Harness: one sentence in, verified money out — home spending plus a small shop's cash flow and receivables.",
   "license": "MIT",
   "type": "module",
