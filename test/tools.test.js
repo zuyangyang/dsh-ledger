@@ -19,7 +19,7 @@ const NOW = new Date('2026-10-26T10:00:00+08:00')
 function setup(overrides = {}) {
   const dataDir = mkdtempSync(join(tmpdir(), 'ledger-tools-'))
   const runtime = createRuntime({
-    config: { dataDir, autoCommit: false, brief: false, skill: false, nightlyEnabled: false, ...overrides },
+    config: { dataDir, autoCommit: false, brief: false, skill: false, ...overrides },
     now: () => NOW,
     logger: { warn: () => {}, info: () => {} },
   })
@@ -45,7 +45,7 @@ test('one sentence becomes one household entry with a receipt', async () => {
   assert.equal(result.book, 'home')
   assert.equal(result.amount_minor, 3200)
   assert.equal(result.category_l1, 'food')
-  assert.equal(result.entered_by, 'yang')
+  assert.equal(result.entered_by, '未识别')
   assert.match(result.text, /已记/)
   assert.match(result.text, /¥32\.00/)
   assert.match(result.text, /\[家里\]/)
@@ -234,6 +234,6 @@ test('the doctor reports where the journal lives', async () => {
   assert.equal(result.default_data_dir.endsWith('/.dsh/ledger'), true)
   assert.equal(result.data_dir_is_default, false)
   assert.equal(typeof result.other_data_dir_entries, 'number')
-  assert.equal(result.actor_sources.default, 1)
+  assert.equal(result.actor_sources.unidentified, 1)
   assert.match(result.text, /记录：1 条/)
 })

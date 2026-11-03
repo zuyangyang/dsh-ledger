@@ -11,9 +11,7 @@ test('defaults match the design doc', () => {
   assert.equal(c.dayCutoffHour, 4)
   assert.equal(c.defaultBook, 'home')
   assert.equal(c.shopName, '店里')
-  assert.equal(c.defaultActor, 'yang')
   assert.equal(c.purchaseSettlementDefault, 'cash')
-  assert.equal(c.nightlyTime, '21:30')
   assert.equal(c.commitDebounceSec, 60)
   assert.equal(c.diag, false)
 })
@@ -53,8 +51,7 @@ test('an empty or odd dataDir still yields a usable absolute path', () => {
 })
 
 test('bad values fall back instead of throwing', () => {
-  const c = normalizeConfig({ nightlyTime: '25:99', dayCutoffHour: 99, briefMaxChars: 1, purchaseSettlementDefault: 'barter' })
-  assert.equal(c.nightlyTime, '21:30')
+  const c = normalizeConfig({ dayCutoffHour: 99, briefMaxChars: 1, purchaseSettlementDefault: 'barter' })
   assert.equal(c.dayCutoffHour, 12)
   assert.equal(c.briefMaxChars, 120)
   assert.equal(c.purchaseSettlementDefault, 'cash')
